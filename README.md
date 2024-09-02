@@ -10,8 +10,7 @@ Basic Google Maps scraper
   - `pandas`
   - `openpyxl`
   - `tqdm`
-
-
+ 
 ## Installation
 
 1. **Clone the repository:**
@@ -38,9 +37,13 @@ Basic Google Maps scraper
    
 4. **Activate the virtual environment:**
     ```  
-    pip install -r requirements.txt
+    pip install -r requirements.txt playwright install chromium
     ```
-
+   
+5. **Install browser:**
+    ```  
+    playwright install chromium
+    ```
 ## Usage
 
 1. Run the application:
