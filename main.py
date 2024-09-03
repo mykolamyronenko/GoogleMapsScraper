@@ -132,8 +132,12 @@ def main():
         df = pd.DataFrame(map_data)
         print(df)
 
+        output_folder = 'output'
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+
         filename = search_for.replace(' ', '_').lower()
-        df.to_excel(f'{filename}.xlsx', index=False)
+        df.to_excel(os.path.join(output_folder, f'{filename}.xlsx'), index=False)
         browser.close()
 
 if __name__ == "__main__":
