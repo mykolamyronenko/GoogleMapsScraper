@@ -90,7 +90,7 @@ def main():
             listing.click()
             page.wait_for_timeout(3000)
             address_xpath = '//button[@data-item-id="address"]//div[contains(@class, "fontBodyMedium")]'
-            website_xpath = '//a[@data-item-id="authority"]'
+            website_xpath = '//a[@data-value="Open website"]'
             phone_number_xpath = '//button[contains(@data-item-id, "phone:tel:")]//div[contains(@class, "fontBodyMedium")]'
             review_count_xpath = '//div[contains(@class, "fontBodyMedium")]//span/span/span[contains(@aria-label, "reviews")]'
 
@@ -102,7 +102,7 @@ def main():
             addresses.append(address)
 
             if page.locator(website_xpath).count() > 0:
-                website = page.locator(website_xpath).all()[0].inner_text()
+                website = page.locator(website_xpath).all()[0].get_attribute('href')
                 page.wait_for_timeout(2000)
             else:
                 website = ''
