@@ -9,7 +9,7 @@ addresses = []
 phones = []
 websites = []
 reviews_count = []
-
+glinks = []
 def main():
     search_for = input("Please enter your search term: ")
     total = int(input("Please enter the total number of results you want: "))
@@ -69,6 +69,7 @@ def main():
 
         names_by_xpath = page.locator('//div[contains(@class, "fontHeadlineSmall ")]').all()[:listings]
         avg_rates_by_xpath = page.locator('//div[contains(@class,"fontBodyMedium")]//span[contains(@aria-label, "stars")]/span[1]').all()[:listings]
+        glink_by_xpath = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()[:listings]
 
         for name in tqdm(names_by_xpath):
             if page.locator('//div[contains(@class, "fontHeadlineSmall ")]').count() > 0:
@@ -83,6 +84,13 @@ def main():
                 page.wait_for_timeout(2000)
             else:
                 rates.append(None)
+                
+        for glink in tqdm(glink_by_xpath):
+            if page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').count() > 0:
+                glinks.append(glink.get_attribute('href'))
+                page.wait_for_timeout(2000)
+            else:
+               glinks.append(None)
 
         inside_listings = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()[:listings]
 
@@ -93,7 +101,7 @@ def main():
             website_xpath = '//a[@data-value="Open website"]'
             phone_number_xpath = '//button[contains(@data-item-id, "phone:tel:")]//div[contains(@class, "fontBodyMedium")]'
             review_count_xpath = '//div[contains(@class, "fontBodyMedium")]//span/span/span[contains(@aria-label, "reviews")]'
-
+            
             if page.locator(address_xpath).count() > 0:
                 address = page.locator(address_xpath).all()[0].inner_text()
                 page.wait_for_timeout(2000)
@@ -107,6 +115,7 @@ def main():
             else:
                 website = ''
             websites.append(website)
+        
 
             if page.locator(phone_number_xpath).count() > 0:
                 phone_number = page.locator(phone_number_xpath).all()[0].inner_text()
@@ -128,7 +137,7 @@ def main():
         minutes = elapsed_time / 60
         print(f"Scraping took {minutes:.2f} minutes.")
 
-        map_data = {'Name': map_names, 'Address': addresses, 'Phone': phones, 'Website': websites, 'Reviews_Count': reviews_count, 'Average Rates': rates}
+        map_data = {'Name': map_names, 'Address': addresses, 'Phone': phones, 'Website': websites, 'GLink': glinks,'Reviews_Count': reviews_count, 'Average Rates': rates}
         df = pd.DataFrame(map_data)
         print(df)
 
