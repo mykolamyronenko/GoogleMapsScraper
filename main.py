@@ -3,18 +3,10 @@ import pandas as pd
 import os, sys, time
 from tqdm import tqdm
 
-map_names = []
-rates = []
-addresses = []
-phones = []
-websites = []
-reviews_count = []
-glinks = []
-def main():
-    search_for = input("Please enter your search term: ")
-    total = int(input("Please enter the total number of results you want: "))
+# Initialize lists to store data
+map_names, rates, addresses, phones, websites, reviews_count, glinks,links, latitudes, longitudes = [], [], [], [], [], [], [], [], [], []
 
-    # Prepare the list of search terms
+def get_search_list(search_for):
     search_list = [search_for.strip()] if search_for else []
     if not search_list:
         input_file_name = 'input.txt'
@@ -25,6 +17,101 @@ def main():
         if not search_list:
             print('Error occurred: You must either pass the -s search argument, or add searches to input.txt')
             sys.exit()
+    return search_list
+
+def scrape_data(page, total):
+    listings = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').count()
+    print(f'Found: {listings}')
+    previous_listings = listings
+    while listings < total:
+        page.mouse.wheel(0, 10000)
+        page.wait_for_timeout(2000)
+        listings = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').count()
+        print(f'Scrolled to: {listings}')
+        if listings == previous_listings:
+            if page.locator('//p[@class="fontBodyMedium "]//span[text()="You\'ve reached the end of the list."]').count() > 0:
+                listings = total
+                break
+            else:
+                inside_listings = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()[:listings]
+                if inside_listings:
+                    inside_listings[0].click()
+                    page.wait_for_timeout(2000)
+        previous_listings = listings
+    return min(listings, total)
+
+def extract_data(page, listings):
+    names_by_xpath = page.locator('//div[contains(@class, "fontHeadlineSmall ")]').all()[:listings]
+    avg_rates_by_xpath = page.locator('//div[contains(@class,"fontBodyMedium")]//span[contains(@aria-label, "stars")]/span[1]').all()[:listings]
+    glink_by_xpath = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()[:listings]
+
+    for name in tqdm(names_by_xpath):
+        map_names.append(name.inner_text() if name else None)
+
+    for avg_rate in tqdm(avg_rates_by_xpath):
+        rates.append(avg_rate.inner_text() if avg_rate else None)
+
+    for glink in tqdm(glink_by_xpath):
+        glinks.append(glink.get_attribute('href') if glink else None)
+
+    inside_listings = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()[:listings]
+
+    for listing in tqdm(inside_listings):
+        listing.click()
+        page.wait_for_timeout(3000)
+        address_xpath = '//button[@data-item-id="address"]//div[contains(@class, "fontBodyMedium")]'
+        website_xpath = '//a[@data-value="Open website"]'
+        phone_number_xpath = '//button[contains(@data-item-id, "phone:tel:")]//div[contains(@class, "fontBodyMedium")]'
+        review_count_xpath = '//div[contains(@class, "fontBodyMedium")]//span/span/span[contains(@aria-label, "reviews")]'
+
+        addresses.append(page.locator(address_xpath).inner_text() if page.locator(address_xpath).count() > 0 else '')
+        websites.append(page.locator(website_xpath).get_attribute('href') if page.locator(website_xpath).count() > 0 else '')
+        phones.append(page.locator(phone_number_xpath).inner_text() if page.locator(phone_number_xpath).count() > 0 else '')
+        reviews_count.append(page.locator(review_count_xpath).inner_text().replace(',', '').replace('(', '').replace(')', '').strip() if page.locator(review_count_xpath).count() > 0 else '')
+        page.wait_for_timeout(1000)
+
+def extract_coordinates():
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, args=['--lang=en-US'])
+        page = browser.new_page()
+
+        for glink in tqdm(glinks):
+            page.goto(glink, timeout=60000)
+            page.wait_for_timeout(5000)
+            links.append(page.url)
+
+        for coordinate in links:
+            try:
+                parts = coordinate.split('@')[1].split(',')
+                latitudes.append(parts[0])
+                longitudes.append(parts[1])
+            except IndexError:
+                latitudes.append(None)
+                longitudes.append(None)
+
+        browser.close()
+
+def save_data(search_for):
+    map_data = {
+        'Name': map_names, 'Address': addresses, 'Phone': phones, 'Website': websites,
+        'Google Link': links, 'Latitude': latitudes, 'Longitude': longitudes,
+        'Reviews_Count': reviews_count, 'Average Rates': rates
+    }
+    df = pd.DataFrame(map_data)
+    print(df)
+
+    output_folder = 'output'
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    filename = search_for.replace(' ', '_').lower()
+    df.to_excel(os.path.join(output_folder, f'{filename}.xlsx'), index=False)
+
+def main():
+    search_for = input("Please enter your search term: ")
+    total = int(input("Please enter the total number of results you want: "))
+
+    search_list = get_search_list(search_for)
 
     with sync_playwright() as p:
         start_time = time.time()
@@ -32,7 +119,6 @@ def main():
         page = browser.new_page()
         page.goto("https://www.google.com/maps?hl=en", timeout=60000)
         page.wait_for_timeout(5000)
-        
 
         for search_for_index, search_for in enumerate(search_list):
             print(f"-----\n{search_for_index} - {search_for}")
@@ -42,112 +128,17 @@ def main():
             page.wait_for_timeout(4000)
             page.hover('//a[contains(@href, "https://www.google.com/maps/place")]')
 
-        listings = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').count()
-        print(f'Found: {listings}')
-        previous_listings = listings
-        while listings < total:
-            page.mouse.wheel(0, 10000)
-            page.wait_for_timeout(2000)
-            listings = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').count()
-            print(f'Scrolled to: {listings}')
-            if listings == previous_listings:
-                if page.locator('//p[@class="fontBodyMedium "]//span[text()="You\'ve reached the end of the list."]').count() > 0:
-                    listings = total
-                    break
-                else:
-                    inside_listings = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()[:listings]
-                    if inside_listings:
-                        inside_listings[0].click()
-                        page.wait_for_timeout(2000)
-                        # page.locator('//button[@aria-label="Close"]/div').click()
-                        # page.wait_for_timeout(2000)
-            previous_listings = listings
-        if listings > total:
-            listings = total
-
+        listings = scrape_data(page, total)
         print(f'Processing on: {listings}')
-
-        names_by_xpath = page.locator('//div[contains(@class, "fontHeadlineSmall ")]').all()[:listings]
-        avg_rates_by_xpath = page.locator('//div[contains(@class,"fontBodyMedium")]//span[contains(@aria-label, "stars")]/span[1]').all()[:listings]
-        glink_by_xpath = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()[:listings]
-
-        for name in tqdm(names_by_xpath):
-            if page.locator('//div[contains(@class, "fontHeadlineSmall ")]').count() > 0:
-                map_names.append(name.inner_text())
-                page.wait_for_timeout(2000)
-            else:
-                map_names.append(None)
-
-        for avg_rate in tqdm(avg_rates_by_xpath):
-            if page.locator('//div[contains(@class,"fontBodyMedium")]//span[contains(@aria-label, "stars")]/span[1]').count() > 0:
-                rates.append(avg_rate.inner_text())
-                page.wait_for_timeout(2000)
-            else:
-                rates.append(None)
-                
-        for glink in tqdm(glink_by_xpath):
-            if page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').count() > 0:
-                glinks.append(glink.get_attribute('href'))
-                page.wait_for_timeout(2000)
-            else:
-               glinks.append(None)
-
-        inside_listings = page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()[:listings]
-
-        for listing in tqdm(inside_listings):
-            listing.click()
-            page.wait_for_timeout(3000)
-            address_xpath = '//button[@data-item-id="address"]//div[contains(@class, "fontBodyMedium")]'
-            website_xpath = '//a[@data-value="Open website"]'
-            phone_number_xpath = '//button[contains(@data-item-id, "phone:tel:")]//div[contains(@class, "fontBodyMedium")]'
-            review_count_xpath = '//div[contains(@class, "fontBodyMedium")]//span/span/span[contains(@aria-label, "reviews")]'
-            
-            if page.locator(address_xpath).count() > 0:
-                address = page.locator(address_xpath).all()[0].inner_text()
-                page.wait_for_timeout(2000)
-            else:
-                address = ''
-            addresses.append(address)
-
-            if page.locator(website_xpath).count() > 0:
-                website = page.locator(website_xpath).all()[0].get_attribute('href')
-                page.wait_for_timeout(2000)
-            else:
-                website = ''
-            websites.append(website)
-        
-
-            if page.locator(phone_number_xpath).count() > 0:
-                phone_number = page.locator(phone_number_xpath).all()[0].inner_text()
-                page.wait_for_timeout(2000)
-            else:
-                phone_number = ''
-            phones.append(phone_number)
-
-            if page.locator(review_count_xpath).count() > 0:
-                review_count = page.locator(review_count_xpath).inner_text().replace(',', '').replace('(', '').replace(')', '').strip()
-                page.wait_for_timeout(2000)
-            else:
-                review_count = ''
-            reviews_count.append(review_count)
-            page.wait_for_timeout(1000)
+        extract_data(page, listings)
 
         end_time = time.time()
         elapsed_time = end_time - start_time
         minutes = elapsed_time / 60
         print(f"Scraping took {minutes:.2f} minutes.")
 
-        map_data = {'Name': map_names, 'Address': addresses, 'Phone': phones, 'Website': websites, 'GLink': glinks,'Reviews_Count': reviews_count, 'Average Rates': rates}
-        df = pd.DataFrame(map_data)
-        print(df)
-
-        output_folder = 'output'
-        if not os.path.exists(output_folder):
-            os.makedirs(output_folder)
-
-        filename = search_for.replace(' ', '_').lower()
-        df.to_excel(os.path.join(output_folder, f'{filename}.xlsx'), index=False)
-        browser.close()
+    extract_coordinates()
+    save_data(search_for)
 
 if __name__ == "__main__":
     main()
