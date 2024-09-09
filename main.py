@@ -52,11 +52,6 @@ async def scrape_data(page, total):
                 if inside_listings:
                     await inside_listings[0].click()
                     await page.wait_for_timeout(2000)
-                    # if await page.locator('//button[@aria-label="Close"]/div').count() > 0:
-                    #     await page.hover('//button[@aria-label="Close"]/div')
-                    #     await page.locator('//button[@aria-label="Close"]/div').click()
-                    #     await page.wait_for_timeout(2000)
-                    #     await page.mouse.wheel(0, 15000)
         previous_listings = listings
     return min(listings, total)
 
