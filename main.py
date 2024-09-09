@@ -53,41 +53,20 @@ async def scrape_data(page, total):
                     # Fixes infinite scrolling 
                     await inside_listings[0].click()
                     await page.wait_for_timeout(2000)
+                    await inside_listings[5].click()
         previous_listings = listings
     return min(listings, total)
 
 async def extract_data(page, listings):
     # Locate elements containing the required data
-    names_by_xpath = await page.locator('//div[contains(@class, "fontHeadlineSmall ")]').all()
-    avg_rates_by_xpath = await page.locator('//div[contains(@class,"fontBodyMedium")]//span[contains(@aria-label, "stars")]/span[1]').all()
+
     glink_by_xpath = await page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()
-
+    
     # Extract and store data in respective lists
-    for name in tqdm(names_by_xpath[:listings]):
-        names.append(await name.inner_text() if name else None)
 
-    for avg_rate in tqdm(avg_rates_by_xpath[:listings]):
-        rates.append(await avg_rate.inner_text() if avg_rate else None)
 
     for glink in tqdm(glink_by_xpath[:listings]):
         glinks.append(await glink.get_attribute('href') if glink else None)
-
-    inside_listings = await page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()
-
-    for listing in tqdm(inside_listings[:listings]):
-        await listing.click()
-        await page.wait_for_timeout(5000)
-        address_xpath = '//button[@data-item-id="address"]//div[contains(@class, "fontBodyMedium")]'
-        website_xpath = '//a[@data-value="Open website"]'
-        phone_number_xpath = '//button[contains(@data-item-id, "phone:tel:")]//div[contains(@class, "fontBodyMedium")]'
-        review_count_xpath = '//div[contains(@class, "fontBodyMedium")]//span/span/span[contains(@aria-label, "reviews")]'
-
-        addresses.append(await page.locator(address_xpath).inner_text() if await page.locator(address_xpath).count() > 0 else '')
-        websites.append(await page.locator(website_xpath).get_attribute('href') if await page.locator(website_xpath).count() > 0 else '')
-        phones.append(await page.locator(phone_number_xpath).inner_text() if await page.locator(phone_number_xpath).count() > 0 else '')
-        review_text = await page.locator(review_count_xpath).inner_text() if await page.locator(review_count_xpath).count() > 0 else ''
-        reviews_count.append(review_text.replace(',', '').replace('(', '').replace(')', '').strip())
-        await page.wait_for_timeout(1000)
 
 async def extract_coordinates():
     # Extract coordinates from the Google Maps links
@@ -98,6 +77,20 @@ async def extract_coordinates():
             await page.goto(glink, timeout=60000)
             await page.wait_for_timeout(5000)
             links.append(page.url)
+            names_by_xpath = '//div[@style="padding-bottom: 4px;"]//h1'
+            avg_rates_by_xpath = '//div[@style="padding-bottom: 4px;"]//div[contains(@jslog,"mutable:true;")]/span[1]/span[1]'
+            address_xpath = '//button[@data-item-id="address"]//div[contains(@class, "fontBodyMedium")]'
+            website_xpath = '//a[@data-value="Open website"]'
+            phone_number_xpath = '//button[contains(@data-item-id, "phone:tel:")]//div[contains(@class, "fontBodyMedium")]'
+            review_count_xpath = '//div[@style="padding-bottom: 4px;"]//div[contains(@jslog,"mutable:true;")]/span[2]'
+            names.append(await page.locator(names_by_xpath).inner_text() if await page.locator(names_by_xpath).count() > 0 else '')
+            rates.append(await page.locator(avg_rates_by_xpath).inner_text() if await page.locator(avg_rates_by_xpath).count() > 0 else '')
+            addresses.append(await page.locator(address_xpath).inner_text() if await page.locator(address_xpath).count() > 0 else '')
+            websites.append(await page.locator(website_xpath).get_attribute('href') if await page.locator(website_xpath).count() > 0 else '')
+            phones.append(await page.locator(phone_number_xpath).inner_text() if await page.locator(phone_number_xpath).count() > 0 else '')
+            review = await page.locator(review_count_xpath).inner_text() if await page.locator(review_count_xpath).count() > 0 else ''
+            reviews_count.append(review.replace(',', '').replace('(', '').replace(')', '').strip())
+            await page.wait_for_timeout(2000)
         await browser.close()
 
     # Parse coordinates from the URL
