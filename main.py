@@ -50,6 +50,7 @@ async def scrape_data(page, total):
                 # Click on the first listing to load more details
                 inside_listings = await page.locator('//a[contains(@href, "https://www.google.com/maps/place")]').all()
                 if inside_listings:
+                    # Fixes infinite scrolling 
                     await inside_listings[0].click()
                     await page.wait_for_timeout(2000)
         previous_listings = listings
