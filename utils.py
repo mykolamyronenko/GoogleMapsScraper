@@ -27,6 +27,12 @@ async def get_search_list():
 
 def save_data(search_for):
     try:
+        # Ensure all lists in data.data are of the same length
+        min_length = min(len(data.data[key]) for key in data.data.keys())
+        for key in data.data.keys():
+            if len(data.data[key]) > min_length:
+                data.data[key] = data.data[key][:min_length]
+
         map_data = {
             'Name': data.data['names'], 'Address': data.data['addresses'], 'Phone': data.data['phones'],
             'Website': data.data['websites'], 'Google Link': data.data['links'],
@@ -43,6 +49,7 @@ def save_data(search_for):
     except Exception as e:
         print(f"An error occurred while saving data: {e}")
 
+
 def merge_excel_files():
     try:
         output_folder = 'output'
@@ -58,7 +65,8 @@ def parse_coordinates():
     try:
         for coordinate in data.data['links']:
             try:
-                parts = coordinate.split('@')[1].split(',')
+                # Split the link by '@' and take the part after the last '@'
+                parts = coordinate.split('@')[-1].split(',')
                 data.data['latitudes'].append(parts[0])
                 data.data['longitudes'].append(parts[1])
             except IndexError:
