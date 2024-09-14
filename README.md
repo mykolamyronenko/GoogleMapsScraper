@@ -51,7 +51,9 @@ Basic Google Maps scraper
     python main.py
     ```
 
-2. Write what are you looking for and number of results
+2. Write your search query or put multiple search queries in input.txt
+
+3. Write number of listings to scrape(by default each query contains 122 or less listings)
 
 
 
