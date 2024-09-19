@@ -5,7 +5,7 @@ import data
 
 async def get_search_list():
     try:
-        choice = input("Would you like to input search term manually (1) or use input.txt (2)? ")
+        choice = input("Would you like to input search term manually (1), use input.txt (2), input a single URL (3), or use urls.txt (4)? ")
         if choice == '1':
             search_for = input("Please enter your search term: ")
             return [search_for.strip()]
@@ -18,9 +18,24 @@ async def get_search_list():
             else:
                 print(f'Error: {input_file_name} not found.')
                 sys.exit()
+        elif choice == '3':
+            url = input("Please enter the URL: ")
+            return [url.strip()]
+        elif choice == '4':
+            urls_file_name = 'urls.txt'
+            urls_file_path = os.path.join(os.getcwd(), urls_file_name)
+            if os.path.exists(urls_file_path):
+                with open(urls_file_path, 'r') as file:
+                    return [line.strip() for line in file.readlines()]
+            else:
+                print(f'Error: {urls_file_name} not found.')
+                sys.exit()
         else:
             print('Invalid choice. Exiting.')
             sys.exit()
+    except FileNotFoundError as e:
+        print(f"File not found: {e}")
+        sys.exit()
     except Exception as e:
         print(f"An error occurred while getting the search list: {e}")
         sys.exit()
@@ -39,16 +54,21 @@ def save_data(search_for):
             'Latitude': data.data['latitudes'], 'Longitude': data.data['longitudes'],
             'Reviews_Count': data.data['reviews_count'], 'Average Rates': data.data['rates']
         }
-        df = pd.DataFrame(map_data)
+        df = pd.DataFrame(map_data, columns=['Name', 'Address', 'Phone', 'Website', 'Google Link', 'Latitude', 'Longitude', 'Reviews_Count', 'Average Rates'])
         print(df)
         output_folder = 'output'
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)
-        filename = search_for.replace(' ', '_').lower()
+        
+        # Generate a valid filename
+        if search_for.startswith("http"):
+            filename = search_for.split('/')[5].replace(' ', '_').lower()
+        else:
+            filename = search_for.replace(' ', '_').lower()
+        
         df.to_excel(os.path.join(output_folder, f'{filename}.xlsx'), index=False)
     except Exception as e:
         print(f"An error occurred while saving data: {e}")
-
 
 def merge_excel_files():
     try:
@@ -67,8 +87,12 @@ def parse_coordinates():
             try:
                 # Split the link by '@' and take the part after the last '@'
                 parts = coordinate.split('@')[-1].split(',')
-                data.data['latitudes'].append(parts[0])
-                data.data['longitudes'].append(parts[1])
+                if len(parts) >= 2:
+                    data.data['latitudes'].append(parts[0])
+                    data.data['longitudes'].append(parts[1])
+                else:
+                    data.data['latitudes'].append(None)
+                    data.data['longitudes'].append(None)
             except IndexError:
                 data.data['latitudes'].append(None)
                 data.data['longitudes'].append(None)
