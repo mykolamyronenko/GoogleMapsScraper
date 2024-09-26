@@ -37,7 +37,7 @@ Basic Google Maps scraper
    
 4. **Activate the virtual environment:**
     ```  
-    pip install -r requirements.txt playwright install chromium
+    pip install -r requirements.txt 
     ```
    
 5. **Install browser:**
